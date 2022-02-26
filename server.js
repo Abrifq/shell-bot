@@ -23,6 +23,8 @@ try {
 
 var bot = botgram(config.authToken, { agent: utils.createAgent() });
 var owner = config.owner;
+var useMultipleOwners = config.useMultipleOwners;
+var owners = config.useMultipleOwners || []; //last part is added for backwards-compatibility
 var tokens = {};
 var granted = {};
 var contexts = {};
@@ -43,7 +45,9 @@ function rootHook(msg, reply, next) {
   if (msg.queued) return;
 
   var id = msg.chat.id;
-  var allowed = id === owner || granted[id];
+  var allowed = granted[id] || (useMultipleOwners ?
+    owners.some(function (owner) { return msg.context.id === owner; }) :
+    msg.context.id === owner);
 
   // If this message contains a token, check it
   if (!allowed && msg.command === "start" && Object.hasOwnProperty.call(tokens, msg.args())) {
@@ -57,11 +61,17 @@ function rootHook(msg, reply, next) {
     var contents = (msg.user ? "User" : "Chat") + " <em>" + escapeHtml(msg.chat.name) + "</em>";
     if (msg.chat.username) contents += " (@" + escapeHtml(msg.chat.username) + ")";
     contents += " can now use the bot. To revoke, use:";
+    if (useMultipleOwners)
+      for (var i = 0; i < owners.length; i++) reply.to(owners[i]).html(contents).command("revoke", id);
+    else
     reply.to(owner).html(contents).command("revoke", id);
   }
 
   // If chat is not allowed, but user is, use its context
-  if (!allowed && (msg.from.id === owner || granted[msg.from.id])) {
+  if (!allowed && (granted[msg.from.id] ||
+    useMultipleOwners ?
+    owners.some(function (owner) { return msg.context.id === owner; }) :
+    msg.context.id === owner)) {
     id = msg.from.id;
     allowed = true;
   }
@@ -294,7 +304,9 @@ bot.command("status", function (msg, reply, next) {
   content += "UID/GID: " + uid + "\n";
 
   // Granted chats (msg.chat.id is intentional)
-  if (msg.chat.id === owner) {
+  if (useMultipleOwners ?
+    owners.some(function (owner) { return msg.context.id === owner; }) :
+    msg.context.id === owner) {
     var grantedIds = Object.keys(granted);
     if (grantedIds.length) {
       content += "\nGranted chats:\n";
@@ -439,7 +451,9 @@ bot.command("setlinkpreviews", function (msg, reply, next) {
 
 // Settings: Other chat access
 bot.command("grant", "revoke", function (msg, reply, next) {
-  if (msg.context.id !== owner) return;
+  if (useMultipleOwners ?
+    owners.every(function (owner) { return msg.context.id !== owner; }) :
+    msg.context.id !== owner) return;
   var arg = msg.args(1)[0], id = parseInt(arg);
   if (!arg || isNaN(id))
     return reply.html("Use %s or %s to control whether the chat with that ID can use this bot.", "/grant <id>", "/revoke <id>");
@@ -456,7 +470,9 @@ bot.command("grant", "revoke", function (msg, reply, next) {
   }
 });
 bot.command("token", function (msg, reply, next) {
-  if (msg.context.id !== owner) return;
+  if (useMultipleOwners ?
+    owners.every(function (owner) { return msg.context.id !== owner; }) :
+    msg.context.id !== owner) return;
   var token = utils.generateToken();
   tokens[token] = true;
   reply.disablePreview().html("One-time access token generated. The following link can be used to get access to the bot:\n%s\nOr by forwarding me this:", bot.link(token));
@@ -465,7 +481,11 @@ bot.command("token", function (msg, reply, next) {
 
 // Welcome message, help
 bot.command("start", function (msg, reply, next) {
-  if (msg.args() && msg.context.id === owner && Object.hasOwnProperty.call(tokens, msg.args())) {
+  if (msg.args() &&
+    (useMultipleOwners ?
+      owners.some(function (owner) { return msg.context.id === owner; }) :
+      msg.context.id === owner) &&
+    Object.hasOwnProperty.call(tokens, msg.args())) {
     reply.html("You were already authenticated; the token has been revoked.");
   } else {
     reply.html("Welcome! Use /run to execute commands, and reply to my messages to send input. /help for more info.");

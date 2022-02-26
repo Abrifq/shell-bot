@@ -1,5 +1,11 @@
 # shell-bot
 
+## **This is a fork**
+
+This fork adds the functionality of adding multiple "owners" (authorized users who can run shell codes).
+
+For more details, check out [Fork Details](#Fork-Details)
+
 This is a fully functional shellrunner [Telegram bot][]. You tell it a
 command, it executes it and posts the live output. You can send input to the
 command by replying to the output messages.
@@ -94,3 +100,11 @@ node server
 [Telegram bot]: https://core.telegram.org/bots
 [Botgram]: https://botgram.js.org
 [blog post]: https://alba.sh/blog/telegram-shell-bot/
+
+# Fork Details
+
+The added optional feature is disabled by default.
+If you want to enable it, add `useMultipleOwners` property an set it to true,
+then add `owners` property, set it to array (`[]`) and add ID's of the people you want to give shell access to.
+
+The config wizard also has support for this, but without the interactive method.
